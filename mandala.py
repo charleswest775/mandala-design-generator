@@ -249,7 +249,9 @@ def _make_hole_shape(cx, cy, hole_size, shape_type, facing_angle=0):
     elif shape_type == "Pentagon":
         return _pentagon_pts(cx, cy, hole_size * 0.5)
     elif shape_type == "Triangle":
-        return _triangle_pts(cx, cy, hole_size * 0.5)
+        # Rotate so apex points towards center
+        rot = facing_angle + math.pi / 2
+        return _polygon_pts(cx, cy, hole_size * 0.5, 3, rot)
     elif shape_type == "Square":
         return _square_pts(cx, cy, hole_size * 0.5)
     elif shape_type == "Octagon":
