@@ -272,19 +272,19 @@ GAP_STYLES = {
 ALL_GAP_STYLES = list(GAP_STYLES.keys())
 
 # Shape type options for per-layer overrides
-GAP_SHAPE_NAMES = ["Pointed", "Rounded", "Ogee", "Leaf", "Tulip", "Flame", "Arrow", "Wave"]
+GAP_SHAPE_NAMES = ["Pointed", "Rounded", "Ogee", "Leaf", "Arrow"]
 HOLE_SHAPE_NAMES = ["Circle", "Hexagon", "Pentagon", "Triangle", "Diamond",
                     "Teardrop", "Star", "Square", "Octagon"]
 LAYER_SHAPE_TYPES = ["Default", "Random"] + GAP_SHAPE_NAMES + HOLE_SHAPE_NAMES
 
 # Border shape options for the Outer_Border layer
 BORDER_SHAPE_NAMES = ["Circle", "Square", "Triangle", "Hexagon", "Octagon", "Pentagon"]
-BORDER_SHAPE_TYPES = ["Default", "Scalloped"] + BORDER_SHAPE_NAMES
+BORDER_SHAPE_TYPES = ["Default"] + BORDER_SHAPE_NAMES
 
 # Map UI shape names to gap style function keys
 GAP_SHAPE_MAP = {
     "Pointed": "pointed", "Rounded": "rounded", "Ogee": "ogee", "Leaf": "leaf",
-    "Tulip": "tulip", "Flame": "flame", "Arrow": "arrow", "Wave": "wave",
+    "Arrow": "arrow",
 }
 
 # Layers that should not appear in the layer editor
@@ -1339,7 +1339,7 @@ class MandalaApp:
         self._add_slider(left, "Radius (in)", self.var_size, 2, 36, 0.5)
         self._add_slider(left, "Symmetry", self.var_petals, 3, 20, 1)
         self._add_slider(left, "Rotation (\u00b0)", self.var_rotation, 0, 360, 1)
-        self._add_slider(left, "Complexity", self.var_complexity, 1, 5, 1)
+        self._add_slider(left, "Layers", self.var_complexity, 1, 5, 1)
 
         ttk.Separator(left, orient="horizontal").pack(fill=tk.X, pady=6)
 
@@ -1497,8 +1497,7 @@ class MandalaApp:
             row.pack(fill=tk.X, pady=(0, 3))
 
             # Layer name label
-            display_name = name.replace("_", " ")
-            ttk.Label(row, text=f"{edit_idx + 1}. {display_name}",
+            ttk.Label(row, text=f"Layer {edit_idx + 1}",
                       style="LayerName.TLabel").pack(anchor="w")
 
             controls = ttk.Frame(row)
