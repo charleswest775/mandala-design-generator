@@ -24,8 +24,6 @@ PATTERN_TYPES = [
     "Petal Mandala",
     "Sacred Geometry",
     "Geometric Lattice",
-    "Rosette",
-    "Spiral",
     "Hybrid",
 ]
 
@@ -609,182 +607,6 @@ def _gen_geometric_lattice(size, petals, rot, complexity, rng):
     return layers, "filled"
 
 
-# ══════════════════════════════════════════════════════════════
-# Pattern 4: ROSETTE (connectivity: only lens-shaped intersections cut)
-# Material forms a connected web around the cutout lenses.
-# ══════════════════════════════════════════════════════════════
-
-def _lens_cutout(cx, cy, r, angle, squeeze=0.6, n=60):
-    """Lens/vesica piscis cutout — the intersection of two overlapping circles.
-    squeeze < 1 makes it narrower to keep more connecting material."""
-    d = r * squeeze
-    if d >= 2 * r:
-        d = r * 0.99
-    half_a = math.acos(d / (2 * r)) if d / (2 * r) <= 1 else 0.01
-    pts = []
-    c1x = cx + (d / 2) * math.cos(angle)
-    c1y = cy + (d / 2) * math.sin(angle)
-    for i in range(n // 2 + 1):
-        t = (angle + math.pi - half_a) + (2 * half_a) * i / (n // 2)
-        pts.append((c1x + r * math.cos(t), c1y + r * math.sin(t)))
-    c2x = cx - (d / 2) * math.cos(angle)
-    c2y = cy - (d / 2) * math.sin(angle)
-    for i in range(n // 2 + 1):
-        t = (angle - half_a) + (2 * half_a) * i / (n // 2)
-        pts.append((c2x + r * math.cos(t), c2y + r * math.sin(t)))
-    pts.append(pts[0])
-    return pts
-
-
-def _gen_rosette(size, petals, rot, complexity, rng):
-    layers = []
-
-    # Center hole
-    layers.append(("Center", [_circle_pts(0, 0, size * 0.025)]))
-
-    # Build rosette rings: at each ring radius, place lens cutouts between
-    # overlapping circle positions. The lenses are the cut-away pieces.
-    r = size * 0.10
-    ring_idx = 0
-    while r < size * 0.85 and ring_idx < complexity + 1:
-        lenses = []
-        n_pos = petals * (1 if ring_idx < 2 else 2)
-        lens_r = r * 0.35 * (1 + ring_idx * 0.1)
-        squeeze = 0.5 + rng.random() * 0.3
-
-        for j in range(n_pos):
-            a = rot + 2 * math.pi * j / n_pos
-            lx = r * math.cos(a)
-            ly = r * math.sin(a)
-            # Radial lens (pointing outward)
-            lenses.append(_lens_cutout(lx, ly, lens_r, a, squeeze))
-            # Tangential lens (perpendicular)
-            if complexity >= 3:
-                tang_r = lens_r * 0.6
-                lenses.append(_lens_cutout(lx, ly, tang_r,
-                                           a + math.pi / 2, squeeze * 0.8))
-
-        layers.append((f"Rosette_Ring_{ring_idx + 1}", lenses))
-        r *= PHI
-        ring_idx += 1
-
-    # Petal-shaped cutouts in a middle ring for visual variety
-    if complexity >= 3:
-        mid_r = size * 0.50
-        gaps = _ring_gaps(mid_r * 0.85, mid_r * 1.15, petals * 2,
-                          rot, 0.35, rng.choice(ALL_GAP_STYLES))
-        layers.append(("Mid_Petals", gaps))
-
-    # Dot holes at ring intersections
-    if complexity >= 2:
-        dots = []
-        dot_r = size * 0.010
-        r = size * 0.10
-        ri = 0
-        while r < size * 0.85 and ri < complexity + 1:
-            n_d = petals * (1 if ri < 2 else 2)
-            for j in range(n_d):
-                a = rot + 2 * math.pi * j / n_d
-                dots.append(_circle_pts(r * math.cos(a), r * math.sin(a), dot_r, 20))
-            r *= PHI
-            ri += 1
-        layers.append(("Dots", dots))
-
-    # Outer border
-    layers.append(("Outer_Border", [_circle_pts(0, 0, size)]))
-
-    return layers, "filled"
-
-
-# ══════════════════════════════════════════════════════════════
-# Pattern 5: SPIRAL (connectivity: spiral arms are the material)
-# Cut-outs are the spaces between spiral arms — isolated closed shapes.
-# ══════════════════════════════════════════════════════════════
-
-def _spiral_gap(size, n_arms, arm_idx, rot, inner_r, outer_r, gap_frac, n_pts=80):
-    """Generate one inter-arm gap as a closed cutout shape.
-    The gap sits between spiral arm arm_idx and arm_idx+1."""
-    sector = 2 * math.pi / n_arms
-    pts_right = []
-    pts_left = []
-    # Trace along the radial extent
-    for i in range(n_pts + 1):
-        t = i / n_pts
-        r = inner_r + t * (outer_r - inner_r)
-        # Spiral twist: angle increases with radius (golden spiral rate)
-        twist = math.log(r / inner_r + 0.001) * PHI * 0.8
-        a_center = rot + sector * (arm_idx + 0.5) + twist
-        # Gap width: narrower at inner/outer edges, wider in middle
-        w = sector * gap_frac * 0.5 * math.sin(math.pi * t) ** 0.7
-        pts_right.append(_polar_pt(r, a_center + w))
-        pts_left.append(_polar_pt(r, a_center - w))
-    pts_left.reverse()
-    pts = pts_right + pts_left
-    pts.append(pts[0])
-    return pts
-
-
-def _gen_spiral(size, petals, rot, complexity, rng):
-    layers = []
-    n_arms = petals
-
-    # Center hole
-    layers.append(("Center", [_circle_pts(0, 0, size * 0.03)]))
-
-    # Spiral arm gaps — the space between each pair of arms is cut out
-    inner_r = size * 0.06
-    outer_r = size * 0.88
-    gap_frac = 0.35 + complexity * 0.04
-    arm_gaps = []
-    for i in range(n_arms):
-        arm_gaps.append(_spiral_gap(size, n_arms, i, rot, inner_r, outer_r, gap_frac))
-    layers.append(("Spiral_Gaps", arm_gaps))
-
-    # Additional detail: small cutout holes along each arm
-    if complexity >= 3:
-        detail = []
-        dot_r = size * 0.008
-        for arm in range(n_arms):
-            sector = 2 * math.pi / n_arms
-            r = inner_r * 2
-            while r < outer_r * 0.9:
-                twist = math.log(r / inner_r + 0.001) * PHI * 0.8
-                a = rot + sector * arm + twist
-                detail.append(_circle_pts(r * math.cos(a), r * math.sin(a), dot_r, 20))
-                r *= PHI ** 0.5
-        layers.append(("Arm_Details", detail))
-
-    # Phi-ratio ring cutouts between the spiral (small arcs)
-    if complexity >= 4:
-        ring_cuts = []
-        r = size * 0.10
-        while r < size * 0.85:
-            n_arcs = n_arms * 2
-            arc_span = 2 * math.pi / n_arcs * 0.3
-            arc_w = size * 0.006
-            for j in range(n_arcs):
-                a_c = rot + 2 * math.pi * j / n_arcs
-                twist = math.log(r / inner_r + 0.001) * PHI * 0.8
-                a_c += twist
-                pts = []
-                for k in range(21):
-                    f = k / 20
-                    a = a_c - arc_span / 2 + arc_span * f
-                    pts.append(_polar_pt(r + arc_w, a))
-                for k in range(20, -1, -1):
-                    f = k / 20
-                    a = a_c - arc_span / 2 + arc_span * f
-                    pts.append(_polar_pt(r - arc_w, a))
-                pts.append(pts[0])
-                ring_cuts.append(pts)
-            r *= PHI
-        layers.append(("Ring_Accents", ring_cuts))
-
-    # Outer border
-    layers.append(("Outer_Border", [_circle_pts(0, 0, size)]))
-
-    return layers, "filled"
-
 
 # ══════════════════════════════════════════════════════════════
 # Pattern 6: HYBRID (petal core + sacred geometry overlay)
@@ -875,8 +697,6 @@ _GENERATORS = {
     "Petal Mandala": _gen_petal_mandala,
     "Sacred Geometry": _gen_sacred_geometry,
     "Geometric Lattice": _gen_geometric_lattice,
-    "Rosette": _gen_rosette,
-    "Spiral": _gen_spiral,
     "Hybrid": _gen_hybrid,
 }
 
@@ -919,8 +739,7 @@ def _apply_layer_overrides(layers, layer_overrides, rng, size, pattern_type):
 
             # Determine if this layer uses gap-style shapes or hole-style shapes
             is_gap_layer = any(k in layer_name for k in
-                               ("Petal_Ring", "Inner_Petals", "Mid_Petals",
-                                "Spiral_Gaps"))
+                               ("Petal_Ring", "Inner_Petals", "Mid_Petals"))
             is_lattice_layer = "Lattice_Ring" in layer_name
 
             if is_gap_layer and shape_type in GAP_SHAPE_MAP:
@@ -1131,8 +950,7 @@ DXF_COLORS = {
     "Flower": 5, "Metatron": 3, "Star": 2, "Triangle": 4,
     "Radial": 8, "Dot": 6, "Vesica": 200, "Web": 150,
     "Phi": 3, "Circle": 5, "Outer": 7, "Lattice": 4,
-    "Rosette": 1, "Spiral": 3, "Arm": 6, "Ring": 5,
-    "Slot": 8, "Mid": 30, "Lens": 200,
+    "Slot": 8, "Mid": 30,
 }
 
 
@@ -1278,6 +1096,9 @@ class MandalaApp:
         export_btn = ttk.Button(left, text="Export DXF",
                                 style="Export.TButton", command=self._export)
         export_btn.pack(fill=tk.X, ipady=6)
+        png_btn = ttk.Button(left, text="Export PNG",
+                             style="Export.TButton", command=self._export_png)
+        png_btn.pack(fill=tk.X, pady=(4, 0), ipady=6)
 
         # Layer Editor section
         ttk.Separator(left, orient="horizontal").pack(fill=tk.X, pady=8)
@@ -1301,11 +1122,37 @@ class MandalaApp:
         frame.pack(fill=tk.X, pady=(0, 4))
         val_label = ttk.Label(frame, text=f"{label}: {variable.get()}")
         val_label.pack(anchor="w")
-        slider = ttk.Scale(frame, from_=from_, to=to, variable=variable,
+        slider_row = ttk.Frame(frame)
+        slider_row.pack(fill=tk.X)
+        minus_btn = tk.Button(
+            slider_row, text="\u2212", width=2, relief="flat",
+            bg="#DDDDDD", activebackground="#BBBBBB", font=("Segoe UI", 9, "bold"),
+            bd=0, cursor="hand2",
+            command=lambda: self._step_slider(variable, -resolution, from_, to,
+                                              val_label, label, resolution))
+        minus_btn.pack(side=tk.LEFT, padx=(0, 2))
+        slider = ttk.Scale(slider_row, from_=from_, to=to, variable=variable,
                            orient="horizontal",
                            command=lambda _v, lbl=val_label, l=label, v=variable:
                            self._on_slider(lbl, l, v, resolution))
-        slider.pack(fill=tk.X)
+        slider.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        plus_btn = tk.Button(
+            slider_row, text="+", width=2, relief="flat",
+            bg="#DDDDDD", activebackground="#BBBBBB", font=("Segoe UI", 9, "bold"),
+            bd=0, cursor="hand2",
+            command=lambda: self._step_slider(variable, resolution, from_, to,
+                                              val_label, label, resolution))
+        plus_btn.pack(side=tk.LEFT, padx=(2, 0))
+
+    def _step_slider(self, variable, step, from_, to, val_label, label, resolution):
+        raw = variable.get() + step
+        clamped = max(from_, min(to, raw))
+        snapped = round(clamped / resolution) * resolution
+        if isinstance(variable, tk.IntVar):
+            snapped = int(snapped)
+        variable.set(snapped)
+        val_label.config(text=f"{label}: {snapped}")
+        self._schedule_update()
 
     def _on_slider(self, lbl, name, var, res):
         raw = var.get()
@@ -1436,17 +1283,26 @@ class MandalaApp:
             shape_combo.bind("<<ComboboxSelected>>",
                              lambda e: self._schedule_update())
 
-            # Scale slider
+            # Scale +/- with numeric entry
             scale_var = tk.DoubleVar(value=1.0)
-            scale_label = ttk.Label(controls, text="1.0x",
-                                     style="ScaleVal.TLabel")
-            scale_slider = ttk.Scale(
-                controls, from_=0.25, to=2.0, variable=scale_var,
-                orient="horizontal", length=80,
-                command=lambda v, lbl=scale_label, sv=scale_var:
-                    self._on_scale_slider(lbl, sv))
-            scale_slider.pack(side=tk.LEFT, padx=(0, 2))
-            scale_label.pack(side=tk.LEFT)
+            scale_minus = tk.Button(
+                controls, text="\u2212", width=2, relief="flat",
+                bg="#DDDDDD", activebackground="#BBBBBB",
+                font=("Segoe UI", 8, "bold"), bd=0, cursor="hand2",
+                command=lambda sv=scale_var: self._step_scale(sv, -0.05))
+            scale_minus.pack(side=tk.LEFT, padx=(0, 1))
+            scale_entry = tk.Entry(
+                controls, textvariable=scale_var, width=5, justify="center",
+                font=("Segoe UI", 8), relief="solid", bd=1)
+            scale_entry.pack(side=tk.LEFT)
+            scale_entry.bind("<Return>", lambda e: self._on_scale_entry(scale_var))
+            scale_entry.bind("<FocusOut>", lambda e: self._on_scale_entry(scale_var))
+            scale_plus = tk.Button(
+                controls, text="+", width=2, relief="flat",
+                bg="#DDDDDD", activebackground="#BBBBBB",
+                font=("Segoe UI", 8, "bold"), bd=0, cursor="hand2",
+                command=lambda sv=scale_var: self._step_scale(sv, 0.05))
+            scale_plus.pack(side=tk.LEFT, padx=(1, 0))
 
             # Toggle switch for visibility
             visible_var = tk.BooleanVar(value=True)
@@ -1464,9 +1320,8 @@ class MandalaApp:
             if edit_idx in saved_overrides:
                 s, sc, vis = saved_overrides[edit_idx]
                 shape_var.set(s)
-                scale_var.set(sc)
+                scale_var.set(round(sc, 2))
                 visible_var.set(vis)
-                scale_label.config(text=f"{sc:.2f}x")
                 if not vis:
                     toggle_btn.config(text="OFF", bg="#999999",
                                       activebackground="#777777")
@@ -1484,10 +1339,19 @@ class MandalaApp:
             btn.config(text="OFF", bg="#999999", activebackground="#777777")
         self._schedule_update()
 
-    def _on_scale_slider(self, label, scale_var):
-        val = scale_var.get()
-        snapped = round(val * 20) / 20  # snap to 0.05 increments
-        label.config(text=f"{snapped:.2f}x")
+    def _step_scale(self, scale_var, step):
+        val = scale_var.get() + step
+        val = max(0.05, round(val * 20) / 20)
+        scale_var.set(round(val, 2))
+        self._schedule_update()
+
+    def _on_scale_entry(self, scale_var):
+        try:
+            val = float(scale_var.get())
+            val = max(0.05, round(val * 20) / 20)
+            scale_var.set(round(val, 2))
+        except (ValueError, tk.TclError):
+            scale_var.set(1.0)
         self._schedule_update()
 
     def _randomize(self):
@@ -1530,6 +1394,24 @@ class MandalaApp:
             messagebox.showinfo("Export Complete",
                 f"Saved: {filepath}\n\nPattern: {params['pattern_type']}\n"
                 f"Diameter: {diameter:.1f}\"\nCut paths: {n_paths}\nUnits: inches")
+        except Exception as e:
+            messagebox.showerror("Export Error", str(e))
+
+    def _export_png(self):
+        params = self._get_params()
+        diameter = params["size"] * 2
+        ptype = params["pattern_type"].lower().replace(" ", "_")
+        default_name = f"mandala_{ptype}_{diameter:.0f}in_{params['petals']}s"
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".png", initialfile=default_name,
+            filetypes=[("PNG Files", "*.png"), ("All Files", "*.*")],
+            title="Export as PNG")
+        if not filepath:
+            return
+        try:
+            self.fig.savefig(filepath, dpi=300, bbox_inches="tight",
+                             facecolor="white", edgecolor="none")
+            messagebox.showinfo("Export Complete", f"Saved: {filepath}")
         except Exception as e:
             messagebox.showerror("Export Error", str(e))
 
