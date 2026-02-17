@@ -16,12 +16,9 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.patches import Polygon
-from matplotlib.path import Path as MplPath
-from matplotlib.patches import PathPatch
 import numpy as np
 
 PHI = (1 + math.sqrt(5)) / 2
-GOLDEN_ANGLE = 2 * math.pi / PHI ** 2
 
 PATTERN_TYPES = [
     "Petal Mandala",
@@ -112,12 +109,6 @@ def _star_pts(cx, cy, r, n_points=5):
     return pts
 
 
-def _scallop_border(size, n_scallops, rotation, depth_frac=0.06, n_pts=600):
-    t = np.linspace(0, 2 * np.pi, n_pts, endpoint=True)
-    depth = size * depth_frac
-    r = size - depth * 0.5 + depth * 0.5 * np.cos(n_scallops * t + rotation)
-    return list(zip((r * np.cos(t)).tolist(), (r * np.sin(t)).tolist()))
-
 
 # ══════════════════════════════════════════════════════════════
 # Petal gap styles — 8 varieties
@@ -189,44 +180,6 @@ def _gap_leaf(r_in, r_out, ac, ah, n=40):
     return pts
 
 
-def _gap_tulip(r_in, r_out, ac, ah, n=50):
-    pts = []
-    for i in range(n + 1):
-        t = i / n
-        r = r_in + t * (r_out - r_in)
-        b1 = math.exp(-((t - 0.15) ** 2) / 0.02)
-        b2 = math.exp(-((t - 0.7) ** 2) / 0.04)
-        w = ah * 0.85 * (b1 + b2) * math.sin(math.pi * t) ** 0.4
-        pts.append(_polar_pt(r, ac + w))
-    for i in range(n, -1, -1):
-        t = i / n
-        r = r_in + t * (r_out - r_in)
-        b1 = math.exp(-((t - 0.15) ** 2) / 0.02)
-        b2 = math.exp(-((t - 0.7) ** 2) / 0.04)
-        w = ah * 0.85 * (b1 + b2) * math.sin(math.pi * t) ** 0.4
-        pts.append(_polar_pt(r, ac - w))
-    pts.append(pts[0])
-    return pts
-
-
-def _gap_flame(r_in, r_out, ac, ah, n=50):
-    """Flame/candle shaped gap — thin base, wide flicker at top."""
-    pts = []
-    for i in range(n + 1):
-        t = i / n
-        r = r_in + t * (r_out - r_in)
-        flicker = 1 + 0.15 * math.sin(8 * math.pi * t)
-        w = ah * (t ** 0.6) * math.sin(math.pi * t) ** 0.5 * flicker
-        pts.append(_polar_pt(r, ac + w))
-    for i in range(n, -1, -1):
-        t = i / n
-        r = r_in + t * (r_out - r_in)
-        flicker = 1 + 0.15 * math.sin(8 * math.pi * t)
-        w = ah * (t ** 0.6) * math.sin(math.pi * t) ** 0.5 * flicker
-        pts.append(_polar_pt(r, ac - w))
-    pts.append(pts[0])
-    return pts
-
 
 def _gap_arrow(r_in, r_out, ac, ah, n=40):
     """Arrow/chevron gap — wide at inner, sharp point at outer."""
@@ -245,29 +198,10 @@ def _gap_arrow(r_in, r_out, ac, ah, n=40):
     return pts
 
 
-def _gap_wave(r_in, r_out, ac, ah, n=60):
-    """Wavy/sinuous gap — undulating edges."""
-    pts = []
-    for i in range(n + 1):
-        t = i / n
-        r = r_in + t * (r_out - r_in)
-        wave = 1 + 0.25 * math.sin(4 * math.pi * t)
-        w = ah * math.sin(math.pi * t) ** 0.9 * wave
-        pts.append(_polar_pt(r, ac + w))
-    for i in range(n, -1, -1):
-        t = i / n
-        r = r_in + t * (r_out - r_in)
-        wave = 1 + 0.25 * math.sin(4 * math.pi * t + math.pi)
-        w = ah * math.sin(math.pi * t) ** 0.9 * wave
-        pts.append(_polar_pt(r, ac - w))
-    pts.append(pts[0])
-    return pts
-
 
 GAP_STYLES = {
     "pointed": _gap_pointed, "rounded": _gap_rounded, "ogee": _gap_ogee,
-    "leaf": _gap_leaf, "tulip": _gap_tulip, "flame": _gap_flame,
-    "arrow": _gap_arrow, "wave": _gap_wave,
+    "leaf": _gap_leaf, "arrow": _gap_arrow,
 }
 ALL_GAP_STYLES = list(GAP_STYLES.keys())
 
@@ -275,11 +209,11 @@ ALL_GAP_STYLES = list(GAP_STYLES.keys())
 GAP_SHAPE_NAMES = ["Pointed", "Rounded", "Ogee", "Leaf", "Arrow"]
 HOLE_SHAPE_NAMES = ["Circle", "Hexagon", "Pentagon", "Triangle", "Diamond",
                     "Teardrop", "Star", "Square", "Octagon"]
-LAYER_SHAPE_TYPES = ["Default", "Random"] + GAP_SHAPE_NAMES + HOLE_SHAPE_NAMES
+LAYER_SHAPE_TYPES = GAP_SHAPE_NAMES + HOLE_SHAPE_NAMES
 
 # Border shape options for the Outer_Border layer
 BORDER_SHAPE_NAMES = ["Circle", "Square", "Triangle", "Hexagon", "Octagon", "Pentagon"]
-BORDER_SHAPE_TYPES = ["Default"] + BORDER_SHAPE_NAMES
+BORDER_SHAPE_TYPES = BORDER_SHAPE_NAMES
 
 # Map UI shape names to gap style function keys
 GAP_SHAPE_MAP = {
@@ -415,10 +349,8 @@ def _gen_petal_mandala(size, petals, rot, complexity, rng):
     # NO separator arcs — they would cut through connecting ring bands
     # The solid bands between rings are what hold the piece together
 
-    # Scalloped outer border
-    n_sc = petals * (2 if complexity >= 3 else 1)
-    layers.append(("Outer_Border",
-                    [_scallop_border(size, n_sc, rot, 0.04 + 0.02 * complexity / 5)]))
+    # Outer border
+    layers.append(("Outer_Border", [_circle_pts(0, 0, size)]))
 
     return layers, "filled"
 
@@ -671,10 +603,8 @@ def _gen_geometric_lattice(size, petals, rot, complexity, rng):
                                for x, y in pts])
         layers.append(("Radial_Slots", slots))
 
-    # Scalloped border
-    n_sc = petals * 2
-    layers.append(("Outer_Border",
-                    [_scallop_border(size, n_sc, rot, 0.04)]))
+    # Outer border
+    layers.append(("Outer_Border", [_circle_pts(0, 0, size)]))
 
     return layers, "filled"
 
@@ -760,10 +690,8 @@ def _gen_rosette(size, petals, rot, complexity, rng):
             ri += 1
         layers.append(("Dots", dots))
 
-    # Border
-    n_sc = petals * 2
-    layers.append(("Outer_Border",
-                    [_scallop_border(size, n_sc, rot, 0.05)]))
+    # Outer border
+    layers.append(("Outer_Border", [_circle_pts(0, 0, size)]))
 
     return layers, "filled"
 
@@ -852,10 +780,8 @@ def _gen_spiral(size, petals, rot, complexity, rng):
             r *= PHI
         layers.append(("Ring_Accents", ring_cuts))
 
-    # Border
-    n_sc = petals
-    layers.append(("Outer_Border",
-                    [_scallop_border(size, n_sc, rot, 0.04)]))
+    # Outer border
+    layers.append(("Outer_Border", [_circle_pts(0, 0, size)]))
 
     return layers, "filled"
 
@@ -935,9 +861,8 @@ def _gen_hybrid(size, petals, rot, complexity, rng):
             r *= PHI ** 0.5
         layers.append(("Dots", dots))
 
-    # Scalloped border
-    layers.append(("Outer_Border",
-                    [_scallop_border(size, petals * 2, rot, 0.035)]))
+    # Outer border
+    layers.append(("Outer_Border", [_circle_pts(0, 0, size)]))
 
     return layers, "hybrid"
 
@@ -980,7 +905,7 @@ def _apply_layer_overrides(layers, layer_overrides, rng, size, pattern_type):
         shape_type = overrides.get("shape", "Default")
         scale = overrides.get("scale", 1.0)
 
-        if shape_type not in ("Default", "", "Scalloped"):
+        if shape_type not in ("Default", ""):
             # Handle Outer_Border specially with border shapes
             if layer_name == "Outer_Border" and shape_type in BORDER_SHAPE_NAMES:
                 border = _make_border_shape(size, shape_type)
@@ -991,9 +916,6 @@ def _apply_layer_overrides(layers, layer_overrides, rng, size, pattern_type):
                     shapes = [_scale_shape_pts(s, scale) for s in shapes]
                 result[full_idx] = (layer_name, shapes)
                 continue
-
-            if shape_type == "Random":
-                shape_type = rng.choice(GAP_SHAPE_NAMES + HOLE_SHAPE_NAMES)
 
             # Determine if this layer uses gap-style shapes or hole-style shapes
             is_gap_layer = any(k in layer_name for k in
@@ -1420,8 +1342,7 @@ class MandalaApp:
             shape = shape_var.get()
             scale = scale_var.get()
             visible = visible_var.get()
-            if shape != "Default" or abs(scale - 1.0) > 0.01:
-                self.layer_overrides[idx] = {"shape": shape, "scale": scale}
+            self.layer_overrides[idx] = {"shape": shape, "scale": scale}
             if not visible:
                 self._hidden_layers.add(idx)
 
@@ -1479,8 +1400,7 @@ class MandalaApp:
             s = shape_var.get()
             sc = scale_var.get()
             vis = visible_var.get()
-            if s != "Default" or abs(sc - 1.0) > 0.01 or not vis:
-                saved_overrides[idx] = (s, sc, vis)
+            saved_overrides[idx] = (s, sc, vis)
 
         # Clear old widgets
         for child in self._layer_editor_frame.winfo_children():
@@ -1506,7 +1426,8 @@ class MandalaApp:
             # Shape combobox — use border shapes for Outer_Border
             shape_values = (BORDER_SHAPE_TYPES if name == "Outer_Border"
                             else LAYER_SHAPE_TYPES)
-            shape_var = tk.StringVar(value="Default")
+            default_shape = "Circle" if name == "Outer_Border" else shape_values[0]
+            shape_var = tk.StringVar(value=default_shape)
             shape_combo = ttk.Combobox(controls, textvariable=shape_var,
                                         values=shape_values,
                                         state="readonly", width=10,
