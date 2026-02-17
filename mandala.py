@@ -1259,23 +1259,32 @@ class MandalaApp:
                       style="Sub.TLabel").pack(anchor="w")
             return
 
+        # Column headers
+        header = ttk.Frame(self._layer_editor_frame)
+        header.pack(fill=tk.X, pady=(0, 4))
+        ttk.Label(header, text="#", style="ScaleVal.TLabel", width=3).pack(
+            side=tk.LEFT)
+        ttk.Label(header, text="Shape", style="ScaleVal.TLabel", width=12).pack(
+            side=tk.LEFT, padx=(0, 4))
+        ttk.Label(header, text="Scale", style="ScaleVal.TLabel", width=10).pack(
+            side=tk.LEFT, padx=(0, 4))
+        ttk.Label(header, text="Visible", style="ScaleVal.TLabel").pack(
+            side=tk.LEFT, padx=(6, 0))
+
         for edit_idx, (full_idx, name) in enumerate(editable):
             row = ttk.Frame(self._layer_editor_frame)
             row.pack(fill=tk.X, pady=(0, 3))
 
-            # Layer name label
-            ttk.Label(row, text=f"Layer {edit_idx + 1}",
-                      style="LayerName.TLabel").pack(anchor="w")
-
-            controls = ttk.Frame(row)
-            controls.pack(fill=tk.X, padx=(8, 0))
+            # Layer number label
+            ttk.Label(row, text=f"{edit_idx + 1}", style="LayerName.TLabel",
+                      width=3).pack(side=tk.LEFT)
 
             # Shape combobox — use border shapes for Outer_Border
             shape_values = (BORDER_SHAPE_TYPES if name == "Outer_Border"
                             else LAYER_SHAPE_TYPES)
             default_shape = "Circle" if name == "Outer_Border" else shape_values[0]
             shape_var = tk.StringVar(value=default_shape)
-            shape_combo = ttk.Combobox(controls, textvariable=shape_var,
+            shape_combo = ttk.Combobox(row, textvariable=shape_var,
                                         values=shape_values,
                                         state="readonly", width=10,
                                         font=("Segoe UI", 8))
@@ -1286,19 +1295,19 @@ class MandalaApp:
             # Scale +/- with numeric entry
             scale_var = tk.DoubleVar(value=1.0)
             scale_minus = tk.Button(
-                controls, text="\u2212", width=2, relief="flat",
+                row, text="\u2212", width=2, relief="flat",
                 bg="#DDDDDD", activebackground="#BBBBBB",
                 font=("Segoe UI", 8, "bold"), bd=0, cursor="hand2",
                 command=lambda sv=scale_var: self._step_scale(sv, -0.05))
             scale_minus.pack(side=tk.LEFT, padx=(0, 1))
             scale_entry = tk.Entry(
-                controls, textvariable=scale_var, width=5, justify="center",
+                row, textvariable=scale_var, width=5, justify="center",
                 font=("Segoe UI", 8), relief="solid", bd=1)
             scale_entry.pack(side=tk.LEFT)
             scale_entry.bind("<Return>", lambda e: self._on_scale_entry(scale_var))
             scale_entry.bind("<FocusOut>", lambda e: self._on_scale_entry(scale_var))
             scale_plus = tk.Button(
-                controls, text="+", width=2, relief="flat",
+                row, text="+", width=2, relief="flat",
                 bg="#DDDDDD", activebackground="#BBBBBB",
                 font=("Segoe UI", 8, "bold"), bd=0, cursor="hand2",
                 command=lambda sv=scale_var: self._step_scale(sv, 0.05))
@@ -1307,7 +1316,7 @@ class MandalaApp:
             # Toggle switch for visibility
             visible_var = tk.BooleanVar(value=True)
             toggle_btn = tk.Button(
-                controls, text="ON", width=4, relief="flat",
+                row, text="ON", width=4, relief="flat",
                 bg="#2D8A4E", fg="white", activebackground="#236B3C",
                 activeforeground="white", font=("Segoe UI", 7, "bold"),
                 bd=0, highlightthickness=0, cursor="hand2",
